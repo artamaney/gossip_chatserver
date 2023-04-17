@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "gossip-chatserver"
+version = "1.0.0"
+description = "Kek"
+authors = [
+    "Rogov Artemiy",
+    "Nikita Anchutin"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11, <3.12"
+pydantic = "^1.10.0"
