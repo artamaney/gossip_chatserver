@@ -32,7 +32,7 @@ class WSChat:
                             dead = conn
                     self.conns.pop(dead)
                     for conn in self.conns:
-                        msg = Message(mtype=MessageType.USER_LEAVE, id="dead", text="no", to_id="nobody", gossip_id="TODO")
+                        msg = Message(mtype=MessageType.USER_LEAVE, id=dead, text="no", to_id="nobody", gossip_id="TODO")
                         await self.conns[conn].send_json(msg.dict())
                 continue
 
