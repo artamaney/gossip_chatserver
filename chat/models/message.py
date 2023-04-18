@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 import enum
 
+
 class MessageType(enum.StrEnum):
     USER_ENTER = "USER_ENTER"
     INIT = "INIT"
@@ -15,7 +16,8 @@ class Message(BaseModel):
     text: str
     to_id: str
     gossip_id: str
-    #timestamp: int
+
+    # timestamp: int
 
     class Config:
         frozen = True
