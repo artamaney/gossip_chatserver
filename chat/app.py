@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from aiohttp import web
-from copy import deepcopy
 
 
 class WSChat:
@@ -47,7 +46,8 @@ class WSChat:
                 if new_data['to'] is not None:
                     msg = {'mtype': 'DM', 'id': new_data['id'],
                            'text': new_data['text']}
-                    await self.conns[new_data['to']].send_json(msg)
+                    if new_data['to'] in self.conns:
+                        await self.conns[new_data['to']].send_json(msg)
                     continue
                 for con in self.conns:
                     if con != new_data['id']:
