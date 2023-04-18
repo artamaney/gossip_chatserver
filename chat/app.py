@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from aiohttp import web
+from models.message import Message, MessageType
 
 
 class WSChat:
@@ -31,29 +32,27 @@ class WSChat:
                             dead = conn
                     self.conns.pop(dead)
                     for conn in self.conns:
-                        msg = {'mtype': 'USER_LEAVE', 'id': dead}
-                        await self.conns[conn].send_json(msg)
+                        msg = Message(mtype=MessageType.USER_LEAVE, id="dead", text="no", to_id="nobody", gossip_id="TODO")
+                        await self.conns[conn].send_json(msg.dict())
                 continue
 
             if new_data['mtype'] == 'INIT':
                 self.conns[new_data['id']] = ws
                 for con in self.conns:
                     if con != new_data['id']:
-                        msg = {'mtype': 'USER_ENTER', 'id': new_data['id']}
-                        await self.conns[con].send_json(msg)
+                        msg = Message(mtype=MessageType.USER_ENTER, id=new_data['id'], text="no", to_id="nobody", gossip_id="TODO")
+                        await self.conns[con].send_json(msg.dict())
 
             elif new_data['mtype'] == 'TEXT':
                 if new_data['to'] is not None:
-                    msg = {'mtype': 'DM', 'id': new_data['id'],
-                           'text': new_data['text']}
+                    msg = Message(mtype=MessageType.DM, id=new_data['id'], text=new_data['text'], to_id=new_data['to'], gossip_id="TODO")
                     if new_data['to'] in self.conns:
-                        await self.conns[new_data['to']].send_json(msg)
+                        await self.conns[new_data['to']].send_json(msg.dict())
                     continue
                 for con in self.conns:
                     if con != new_data['id']:
-                        msg = {'mtype': 'MSG', 'id': new_data['id'],
-                               'text': new_data['text']}
-                        await self.conns[con].send_json(msg)
+                        msg = Message(mtype=MessageType.MSG, id=new_data['id'], text=new_data['text'], to_id="all", gossip_id="TODO")
+                        await self.conns[con].send_json(msg.dict())
 
     def run(self):
         app = web.Application()
