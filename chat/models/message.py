@@ -9,4 +9,4 @@ class Message(BaseModel):
     gossip_id: str
 
     class Config:
-        frozen=True
+        frozen = True
