@@ -1,78 +1,82 @@
-<html>
-    <body>
-        <h1>WebSocket chat</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const serverHost = "localhost";
+            const serverPort = 5002;
+            const socket = new WebSocket(`ws://${serverHost}:${serverPort}/login`);
+            const loginForm = document.querySelector('#login-form')
+            const messageForm = document.querySelector('#message-form')
+            messageForm.style.display = 'none'
 
-        <textarea id='messages' rows=25 cols=80 readonly></textarea>
-        <br /><br />
+            socket.addEventListener('message', (event) => {
+              const data = event.data
+              console.log(data)
 
-        <input type='text' id='message' placeholder='message' autofocus />
-        <input type='button' id='send' value='Send' disabled />
+              if (data === 'auth_success') {
+                loginForm.style.display = 'none'
+                messageForm.style.display = 'block'
+              } else {
+                const messages = document.querySelector('#messages')
+                const newMessage = document.createElement('p')
+                newMessage.innerText = event.data;
+                messages.appendChild(newMessage)
+              }
+            })
 
-        <script>
-            const chars = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
-            const id = [...Array(8)].map(i => chars[0 | Math.random() * chars.length]).join('')
-            const msg_re = /@(\w+):\s+(.*)/
+            const usernameInput = document.querySelector('#username')
+            const passwordInput = document.querySelector('#password')
 
-            document.body.onload = () => {
-                const [msg_text, send_btn, messages] = [
-                    'message', 'send', 'messages'
-                ].map(x => document.getElementById(x))
+            loginForm.addEventListener('submit', (event) => {
+              event.preventDefault()
 
-                const ws = new WebSocket(`ws://${window.location.host}/chat`)
-                let ping = void null
+              const username = usernameInput.value
+              const password = passwordInput.value
 
-                ws.onopen = () => {
-                    console.log('connection open')
-                    ws.send(JSON.stringify({'mtype': 'INIT', id}))
-                    send_btn.disabled = false
+              socket.send(JSON.stringify({
+                type: 'auth',
+                username,
+                password
+              }))
 
-                    messages.value = `Hello, ${id}!\n`
-                    ping = setInterval(() => void ws.send("ping"), 5000)
-                }
+              usernameInput.value = ''
+              passwordInput.value = ''
+            })
 
-                ws.onclose = () => {
-                    console.log('connection closed')
-                    send_btn.disabled = true
-                    clearInterval(ping)
-                }
 
-                ws.onmessage = evt => {
-                    if (evt.data === 'pong') return
+            const form = document.querySelector("#message-form");
+            const socket_send_message = new WebSocket(`ws://${serverHost}:${serverPort}/chat`);
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
 
-                    let {id, mtype, text} = JSON.parse(evt.data)
-                    switch (mtype) {
-                        case 'MSG':
-                            messages.value += `[${id}]: ${text}\n`
-                            break
+                const input = document.querySelector("#message-input");
+                const message = input.value;
+                input.value = "";
 
-                        case 'DM':
-                            messages.value += `[DM || ${id}]: ${text}\n`
-                            break
-
-                        case 'USER_ENTER':
-                            messages.value += `User ${id} entered the chat\n`
-                            break
-
-                        case 'USER_LEAVE':
-                            messages.value += `User ${id} leaved the chat\n`
-                            break
-                    }
-                }
-
-                send_btn.onclick = () => {
-                    let text = msg_text.value
-                    let to = null
-
-                    if (msg_re.test(text)) {
-                        [to, text] = msg_re.exec(text).slice(1)
-                    }
-                    ws.send(JSON.stringify({'mtype': 'TEXT', id, to, text}))
-
-                    messages.value += `me: ${text}\n`
-                    msg_text.value = ''
-                    msg_text.focus()
-                }
-            }
-        </script>
-    </body>
+                socket_send_message.send(message);
+            });
+        });
+    </script>
+</head>
+<body>
+    <div id="login-form">
+      <form>
+        <label for="username">Username:</label>
+        <input type="text" id="username" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+        <button type="submit">Log in</button>
+      </form>
+    </div>
+    <div id="messages"></div>
+    <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type your message">
+        <button type="submit">Send</button>
+    </form>
+</body>
 </html>

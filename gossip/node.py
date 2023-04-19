@@ -2,13 +2,14 @@ import asyncio
 import json
 import websockets
 from websockets.exceptions import WebSocketException
-
+from datetime import datetime
 from gossip.authenticator import Authenticator
 from gossip.utils import check_if_json
+from chat.models.message import Message
 
 
 class GossipNode:
-    def __init__(self, host, port, peers: set, authenticator: Authenticator):
+    def __init__(self, host, port, peers, authenticator: Authenticator):
         self.host = host
         self.port = port
         self.adjacency_list = peers
@@ -33,13 +34,10 @@ class GossipNode:
         if adjacency_list is None:
             adjacency_list = self.adjacency_list
 
-        print(f"{self.host} {self.port}", "peer", peer)
         for vertex in adjacency_list.get(peer, []):
-            print(f"{self.host} {self.port}", ("peer", peer), ("vertex", vertex))
             if is_connect:
                 self.loop.create_task(self._connect_peer(vertex, adjacency_list))
             else:
-                print("AAAAAAAAAAAAAAAAA")
                 self.loop.create_task(self._gossip(vertex, adjacency_list, message))
 
     async def _run_forever(self):
@@ -69,6 +67,26 @@ class GossipNode:
                 finally:
                     self.chat_clients.remove(websocket)
 
+            case "/login":
+                self.chat_clients.add(websocket)
+                try:
+                    async for message in websocket:
+                        print(f"[*] Received message from {websocket.remote_address}: {message}")
+                        if check_if_json(message):
+                            data = json.loads(message)
+                            if data['type'] == 'auth':
+                                if self.authenticator.check_user(username=data['username'], password=data["password"]):
+                                    response = "auth_success"
+                                    await websocket.send(response)
+                                    for kek in sorted(list(self.messages), key=lambda x: x.datetime):
+                                        await websocket.send(f"anonymous: {kek.text}")
+                                else:
+                                    continue
+                except WebSocketException:
+                    self.chat_clients.remove(websocket)
+                finally:
+                    self.chat_clients.remove(websocket)
+
     async def _connect_peer(self, peer, adjacency_list=None):
         if adjacency_list is None:
             adjacency_list = self.adjacency_list
@@ -79,7 +97,6 @@ class GossipNode:
             async with websockets.connect(uri) as websocket:
                 self.gossip_peers.add(websocket)
                 data = dict(adjacency_list=adjacency_list)
-                print(data)
                 message = json.dumps(data)
                 await websocket.send(message)
                 print(f"[*] Connected to peer {host}:{port}")
@@ -87,10 +104,10 @@ class GossipNode:
             print(f"[!] Failed to connect to peer {host}:{port} due to {str(e)}")
 
     def send_message(self, message, adjacency_list):
-        self.messages.add(message)
+        self.messages.add(Message(text=message, datetime=datetime.utcnow()))
 
         for client in self.chat_clients:
-            self.loop.create_task(client.send(f"Broadcast: {message}"))
+            self.loop.create_task(client.send(f"anonymous: {message}"))
 
         self._gossip_dfs(f"{self.host} {self.port}", adjacency_list, False, message)
 
