@@ -104,15 +104,19 @@ import json
 import websockets
 from websockets.exceptions import WebSocketException
 
+from gossip.authenticator import Authenticator
+from gossip.utils import check_if_json
+
 
 class GossipNode:
-    def __init__(self, host, port, peers: set):
+    def __init__(self, host, port, peers: set, authenticator: Authenticator):
         self.host = host
         self.port = port
         self.gossip_peers = peers
         self.chat_clients = set()
         self.message_log = []
         self.loop = asyncio.get_event_loop()
+        self.authenticator = authenticator
 
     async def run(self):
         start_server = websockets.serve(self._client_handler, self.host, self.port)
@@ -133,6 +137,14 @@ class GossipNode:
         self.chat_clients.add(websocket)
         try:
             async for message in websocket:
+                if check_if_json(message):
+                    data = json.loads(message)
+                    if data['type'] == 'auth':
+                        if self.authenticator.check_user(username=data['username'], password=data["password"]):
+                            response = {"type": "auth_success"}
+                            await websocket.send(json.dumps(response))
+                        else:
+                            continue
                 print(f"[*] Received message from {websocket.remote_address}: {message}")
                 self.send_message(message)
         except WebSocketException:
@@ -145,7 +157,7 @@ class GossipNode:
         uri = f"ws://{host}:{port}"
         try:
             async with websockets.connect(uri) as websocket:
-                self.gossip_peers.add(websocket)
+                self.gossip_peers.append(websocket)
                 print(f"[*] Connected to peer {host}:{port}")
         except WebSocketException as e:
             print(f"[!] Failed to connect to peer {host}:{port} due to {str(e)}")
@@ -154,7 +166,7 @@ class GossipNode:
         # Add the message to the local message log
         self.message_log.append(message)
         # Send the message to connected clients
-        for client in self.clients:
+        for client in self.chat_clients:
             self.loop.create_task(client.send(f"Broadcast: {message}"))
         # Propagate the message to other gossip nodes
         self.loop.create_task(self._gossip(message))
