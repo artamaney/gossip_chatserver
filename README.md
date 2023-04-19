@@ -5,7 +5,7 @@
 ## Как получить токен?
 Токен можно сгенерировать с помощью метода generate_token класса Authenticator.
 
-###Шаги
+### Шаги
 + В файле с кодом gossip/authenticator.py лежит пример генерации токена.
 + Создать файл tokens.json в директории gossip
 + Вставьте значения в json-файл. Ключ - username, значение - сгенерированный токен. Пример: `{"test": "$2b$10$BB6vXakBMrMAlDVoOvHkiu/bT0mfsnbYKcGtjBoAQ.8zvMeBTviti"}`
