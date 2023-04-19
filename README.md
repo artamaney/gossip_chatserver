@@ -1,18 +1,16 @@
 # Gossip chat-server
 
-Decentralized course task. Web chat-server which uses websockets, realized gossip protocol
-Like in IRC developed
+Экзаменационная задача по курсу "Децентрализованные системы".
 
-Authorization form and token generator for users developed
+## Как получить токен?
+Токен можно сгенерировать с помощью метода generate_token класса Authenticator.
 
-## How to get token?
-You should use generate_token method of class Authenticator.
+###Шаги
++ В файле с кодом gossip/authenticator.py лежит пример генерации токена.
++ Создать файл tokens.json в директории gossip
++ Вставьте значения в json-файл. Ключ - username, значение - сгенерированный токен. Пример: `{"test": "$2b$10$BB6vXakBMrMAlDVoOvHkiu/bT0mfsnbYKcGtjBoAQ.8zvMeBTviti"}`
 
-###Steps
-+ In gossip/authenticator.py an example of generating token
-+ Create tokens.json file in gossip directory
-+ Insert your values there. Key - username, value - generated token. It looks like `{"test": "$2b$10$BB6vXakBMrMAlDVoOvHkiu/bT0mfsnbYKcGtjBoAQ.8zvMeBTviti"}`
+## Как запустить?
 
-## How to run?
-
-+ чтобы запустить сеть, нужно запустить файл main.py, в нем можно конфигурировать сервера сети, они задаются в виде списка узлов, для каждого узла указывается его хост и порт, а так же список смежности других серверов в сети. этот список смежности представлен в качестве словаря, где ключ это хост и порт узла сети, а значение -- список смежных узлов. Так сделано, чтобы распространение по госсип было как в IRC, где каждая узел сети это нода в дереве. 
++ Чтобы запустить сеть, нужно запустить файл main.py, в нем можно конфигурировать сервера сети, они задаются в виде списка узлов, для каждого узла указывается его хост и порт, а так же список смежности других серверов в сети. этот список смежности представлен в качестве словаря, где ключ это хост и порт узла сети, а значение -- список смежных узлов. Так сделано, чтобы распространение по госсип было как в IRC, где каждая узел сети это нода в дереве.
++ После того как вы запустили сеть, в html-файле chat/templates/index.html можно указать хост и порт на который необходимо подключаться и затем запустить фронт локально посредством встроенных инструментов IDE (pycharm, например, по нажатию на кнопку браузера). Так же есть возможность использовать сторонние методы: xdg-open, напрямую через браузер и т.д.
