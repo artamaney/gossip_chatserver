@@ -1,23 +1,12 @@
-from pydantic import BaseModel
+import datetime as datetime
+from pydantic import BaseModel, Field
 import enum
-
-
-class MessageType(enum.StrEnum):
-    USER_ENTER = "USER_ENTER"
-    INIT = "INIT"
-    DM = "DM"
-    MSG = "MSG"
-    USER_LEAVE = "USER_LEAVE"
+from datetime import datetime
 
 
 class Message(BaseModel):
-    mtype: MessageType
-    id: str
     text: str
-    to_id: str
-    gossip_id: str
-
-    # timestamp: int
+    datetime: datetime
 
     class Config:
         frozen = True

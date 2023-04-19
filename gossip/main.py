@@ -11,10 +11,12 @@ async def run_node(host, port, peers):
 
 
 if __name__ == "__main__":
+
     nodes = [
-        ("localhost", 5000, [("localhost", 5001), ("localhost", 5002)]),
-        ("localhost", 5001, [("localhost", 5000), ("localhost", 5002)]),
-        ("localhost", 5002, [("localhost", 5000), ("localhost", 5001)])
+        ("localhost", 5000, {"localhost 5000": [("localhost", 5001), ("localhost", 5002)]}),
+        ("localhost", 5001, {"localhost 5001": [("localhost", 5000), ("localhost", 5002)]}),
+        ("localhost", 5002, {"localhost 5002": [("localhost", 5000), ("localhost", 5001)]}),
+        ("localhost", 5003, {"localhost 5003": [("localhost", 5002)]})
     ]
 
     tasks = [run_node(host, port, peers) for host, port, peers in nodes]

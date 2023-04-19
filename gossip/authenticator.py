@@ -31,8 +31,16 @@ class Authenticator:
     def check_user(self, username: str, password: str) -> bool:
         with open(self._settings.file, "r") as f:
             content = f.read()
-        json_file = json.loads(content)
-        print(bcrypt.checkpw(password.encode('utf-8'), json_file[username].encode('utf-8')))
-        if json_file.get(username) != None and bcrypt.checkpw(password.encode('utf-8'), json_file[username].encode('utf-8')):
-            return True
+        try:
+            json_file = json.loads(content)
+            if json_file.get(username) is not None and bcrypt.checkpw(password.encode('utf-8'),
+                                                                      json_file[username].encode('utf-8')):
+                return True
+        except Exception:
+            return False
         return False
+
+
+if __name__ == "__main__":
+    a = Authenticator(AuthenticatorSettings())
+    print(a.generate_token("test"))

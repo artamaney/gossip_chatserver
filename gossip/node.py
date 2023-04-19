@@ -1,188 +1,124 @@
-# import socket
-# import json
-# import threading
-# import time
-# import uuid
-# from typing import List
-# import asyncio
-# import websockets
-#
-#
-# class GossipNode:
-#     def __init__(self, host: str, port: int, peers: List[str] = None):
-#         self.host = host
-#         self.port = port
-#         self.peers = peers if peers else []
-#         self.messages = []
-#         self.node_id = str(uuid.uuid4())
-#         self.counter = 0
-#         self.transaction_log = []
-#         self.gossip_thread = threading.Thread(target=self._gossip)
-#         self.gossip_thread.daemon = True
-#
-#     def start(self):
-#         self._start_server()
-#         self._start_gossip()
-#
-#     def _start_server(self):
-#         server_thread = threading.Thread(target=self._server)
-#         server_thread.daemon = True
-#         server_thread.start()
-#
-#     # def _server(self):
-#     #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
-#     #         server_socket.bind((self.host, self.port))
-#     #         print(f"[*] GossipNode started on {self.host}:{self.port}")
-#     #         while True:
-#     #             client_socket, client_addr = server_socket.accept()
-#     #             print(f"[*] Accepted connection from {client_addr}")
-#     #
-#     #             client_thread = threading.Thread(target=self._client_handler, args=(client_socket, client_addr))
-#     #             client_thread.daemon = True
-#     #             client_thread.start()
-#     async def _server(self):
-#         async with websockets.serve(self._client_handler, self.host, self.port):
-#             print(f"[*] GossipNode started on {self.host}:{self.port}")
-#             await asyncio.Future()  # Run the server indefinitely
-#
-#     def _handle_message(self, data: bytes, addr: tuple):
-#         message = json.loads(data)
-#         transaction_id = message["transaction_id"]
-#
-#         # Проверяем, есть ли транзакция в журнале
-#         if not any(tx["transaction_id"] == transaction_id for tx in self.transaction_log):
-#             print(f"[*] Received message from {addr}: {message['content']}")
-#
-#             self.transaction_log.append(message)
-#             self.transaction_log.sort(key=lambda tx: tx["transaction_id"])
-#
-#             self._gossip(message)
-#
-#     def _start_gossip(self):
-#         gossip_thread = threading.Thread(target=self._gossip_loop)
-#         gossip_thread.daemon = True
-#         gossip_thread.start()
-#
-#     def _gossip_loop(self):
-#         while True:
-#             for message in self.messages:
-#                 self._gossip(message)
-#             time.sleep(1)
-#
-#     def _gossip(self, message: dict):
-#         for peer in self.peers:
-#             host, port = peer
-#             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
-#                 client_socket.sendto(json.dumps(message).encode("utf-8"), (host, int(port)))
-#
-#     def send_message(self, content: str):
-#         self.counter += 1
-#         transaction_id = f"{self.node_id}-{self.counter}"
-#         message = {"transaction_id": transaction_id, "content": content}
-#
-#         self.transaction_log.append(message)
-#         self._gossip(message)
-#
-#     async def _client_handler(self, websocket, path):
-#         while True:
-#             data = await websocket.recv()
-#             if not data:
-#                 break
-#
-#             message = data
-#             print(message)
-#             self.send_message(message)
-#
-#         print(f"[*] Connection closed with {websocket.remote_address}")
-#
-#     def run(self):
-#         self.gossip_thread.start()
-#         asyncio.run(self._server())
-
 import asyncio
 import json
 import websockets
 from websockets.exceptions import WebSocketException
-
+from datetime import datetime
 from gossip.authenticator import Authenticator
 from gossip.utils import check_if_json
+from chat.models.message import Message
 
 
 class GossipNode:
-    def __init__(self, host, port, peers: set, authenticator: Authenticator):
+    def __init__(self, host, port, peers, authenticator: Authenticator):
         self.host = host
         self.port = port
-        self.gossip_peers = peers
+        self.adjacency_list = peers
+        self.gossip_peers = set()
         self.chat_clients = set()
         self.message_log = []
         self.loop = asyncio.get_event_loop()
+        self.users = set()
+        self.messages = set()
         self.authenticator = authenticator
 
     async def run(self):
-        start_server = websockets.serve(self._client_handler, self.host, self.port)
+        start_server = websockets.serve(self._handle_message, self.host, self.port)
         await start_server
         print(f"Server listening on {self.host}:{self.port}")
 
-        # Connect to peers
-        for peer in self.gossip_peers:
-            self.loop.create_task(self._connect_peer(peer))
+        self._gossip_dfs(f"{self.host} {self.port}", self.adjacency_list)
 
         await self._run_forever()
+
+    def _gossip_dfs(self, peer, adjacency_list=None, is_connect=True, message=""):
+        if adjacency_list is None:
+            adjacency_list = self.adjacency_list
+
+        for vertex in adjacency_list.get(peer, []):
+            if is_connect:
+                self.loop.create_task(self._connect_peer(vertex, adjacency_list))
+            else:
+                self.loop.create_task(self._gossip(vertex, adjacency_list, message))
 
     async def _run_forever(self):
         while True:
             await asyncio.sleep(1)
 
-    async def _client_handler(self, websocket, path):
-        self.chat_clients.add(websocket)
-        try:
-            async for message in websocket:
-                if check_if_json(message):
+    async def _handle_message(self, websocket, path):
+        match path:
+            case "/gossip_node/connect":
+                async for message in websocket:
                     data = json.loads(message)
-                    if data['type'] == 'auth':
-                        if self.authenticator.check_user(username=data['username'], password=data["password"]):
-                            response = {"type": "auth_success"}
-                            await websocket.send(json.dumps(response))
-                        else:
-                            continue
-                print(f"[*] Received message from {websocket.remote_address}: {message}")
-                self.send_message(message)
-        except WebSocketException:
-            self.chat_clients.remove(websocket)
-        finally:
-            self.chat_clients.remove(websocket)
+                    self._gossip_dfs(f"{self.host} {self.port}", data["adjacency_list"])
+            case "/gossip_node/send_message":
+                async for message in websocket:
+                    data = json.loads(message)
+                    print(f"[*] Received message from node {websocket.remote_address}: {data}")
+                    self.send_message(data["message"], data["adjacency_list"])
 
-    async def _connect_peer(self, peer):
+            case "/chat":
+                self.chat_clients.add(websocket)
+                try:
+                    async for message in websocket:
+                        print(f"[*] Received message from {websocket.remote_address}: {message}")
+                        self.send_message(message, self.adjacency_list)
+                except WebSocketException:
+                    self.chat_clients.remove(websocket)
+                finally:
+                    self.chat_clients.remove(websocket)
+
+            case "/login":
+                self.chat_clients.add(websocket)
+                try:
+                    async for message in websocket:
+                        print(f"[*] Received message from {websocket.remote_address}: {message}")
+                        if check_if_json(message):
+                            data = json.loads(message)
+                            if data['type'] == 'auth':
+                                if self.authenticator.check_user(username=data['username'], password=data["password"]):
+                                    response = "auth_success"
+                                    await websocket.send(response)
+                                    for kek in sorted(list(self.messages), key=lambda x: x.datetime):
+                                        await websocket.send(f"anonymous: {kek.text}")
+                                else:
+                                    continue
+                except WebSocketException:
+                    self.chat_clients.remove(websocket)
+                finally:
+                    self.chat_clients.remove(websocket)
+
+    async def _connect_peer(self, peer, adjacency_list=None):
+        if adjacency_list is None:
+            adjacency_list = self.adjacency_list
+
         host, port = peer
-        uri = f"ws://{host}:{port}"
+        uri = f"ws://{host}:{port}/gossip_node/connect"
         try:
             async with websockets.connect(uri) as websocket:
-                self.gossip_peers.append(websocket)
+                self.gossip_peers.add(websocket)
+                data = dict(adjacency_list=adjacency_list)
+                message = json.dumps(data)
+                await websocket.send(message)
                 print(f"[*] Connected to peer {host}:{port}")
         except WebSocketException as e:
             print(f"[!] Failed to connect to peer {host}:{port} due to {str(e)}")
 
-    def send_message(self, message):
-        # Add the message to the local message log
-        self.message_log.append(message)
-        # Send the message to connected clients
+    def send_message(self, message, adjacency_list):
+        self.messages.add(Message(text=message, datetime=datetime.utcnow()))
+
         for client in self.chat_clients:
-            self.loop.create_task(client.send(f"Broadcast: {message}"))
-        # Propagate the message to other gossip nodes
-        self.loop.create_task(self._gossip(message))
+            self.loop.create_task(client.send(f"anonymous: {message}"))
 
-    async def _gossip(self, message):
-        for peer in self.gossip_peers:
-            host, port = peer
-            uri = f"ws://{host}:{port}"
-            try:
-                # TODO
-                # если отправлять по http, то не будет проблем с тем что и клиенты и ноды ходят в одно место
-                # или нужно как-то разруливать в функции handle_message откуда пришло
-                # и нужно сделать согласование типо отправлять сообщения, только если тебе его согласовали обе соседние ноды
-                # дальше можно попробовать складывать сообщения в какую-нибудь базу(массивчик) и еще ее пытаться согласовывать и всё
+        self._gossip_dfs(f"{self.host} {self.port}", adjacency_list, False, message)
 
-                async with websockets.connect(uri) as websocket:
-                    await websocket.send(message)
-            except WebSocketException as e:
-                print(f"[!] Failed to gossip message to peer {host}:{port} due to {str(e)}")
+    async def _gossip(self, peer, adjacency_list, message):
+        host, port = peer
+        uri = f"ws://{host}:{port}/gossip_node/send_message"
+        try:
+            async with websockets.connect(uri) as websocket:
+                data = dict(adjacency_list=adjacency_list, message=message)
+                message = json.dumps(data)
+
+                await websocket.send(message)
+        except WebSocketException as e:
+            print(f"[!] Failed to gossip message to peer {host}:{port} due to {str(e)}")
