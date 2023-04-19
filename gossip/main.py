@@ -1,11 +1,12 @@
 import asyncio
 
+from gossip.authenticator import Authenticator, AuthenticatorSettings
 from node import GossipNode
 import threading
 
 
 async def run_node(host, port, peers):
-    node = GossipNode(host, port, peers)
+    node = GossipNode(host, port, peers, authenticator=Authenticator(AuthenticatorSettings()))
     await node.run()
 
 

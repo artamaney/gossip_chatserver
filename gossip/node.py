@@ -3,9 +3,12 @@ import json
 import websockets
 from websockets.exceptions import WebSocketException
 
+from gossip.authenticator import Authenticator
+from gossip.utils import check_if_json
+
 
 class GossipNode:
-    def __init__(self, host, port, peers):
+    def __init__(self, host, port, peers: set, authenticator: Authenticator):
         self.host = host
         self.port = port
         self.adjacency_list = peers
@@ -15,6 +18,7 @@ class GossipNode:
         self.loop = asyncio.get_event_loop()
         self.users = set()
         self.messages = set()
+        self.authenticator = authenticator
 
     async def run(self):
         start_server = websockets.serve(self._handle_message, self.host, self.port)

@@ -9,14 +9,44 @@
         document.addEventListener("DOMContentLoaded", () => {
             const serverHost = "localhost";
             const serverPort = 5000;
-            const socket = new WebSocket(`ws://${serverHost}:${serverPort}/chat`);
+            const socket = new WebSocket(`ws://${serverHost}:${serverPort}`);
+            const loginForm = document.querySelector('#login-form')
+            const messageForm = document.querySelector('#message-form')
+            messageForm.style.display = 'none'
 
-            socket.addEventListener("message", (event) => {
-                const messages = document.querySelector("#messages");
-                const newMessage = document.createElement("p");
-                newMessage.innerText = event.data;
-                messages.appendChild(newMessage);
-            });
+            socket.addEventListener('message', (event) => {
+              const data = JSON.parse(event.data)
+
+              if (data.type === 'auth_success') {
+                loginForm.style.display = 'none'
+                messageForm.style.display = 'block'
+              } else {
+                const messages = document.querySelector('#messages')
+                const newMessage = document.createElement('p')
+                newMessage.innerText = `${data.username}: ${data.message}`
+                messages.appendChild(newMessage)
+              }
+            })
+
+            const usernameInput = document.querySelector('#username')
+            const passwordInput = document.querySelector('#password')
+
+            loginForm.addEventListener('submit', (event) => {
+              event.preventDefault()
+
+              const username = usernameInput.value
+              const password = passwordInput.value
+
+              socket.send(JSON.stringify({
+                type: 'auth',
+                username,
+                password
+              }))
+
+              usernameInput.value = ''
+              passwordInput.value = ''
+            })
+
 
             const form = document.querySelector("#message-form");
             form.addEventListener("submit", (event) => {
@@ -32,6 +62,15 @@
     </script>
 </head>
 <body>
+    <div id="login-form">
+      <form>
+        <label for="username">Username:</label>
+        <input type="text" id="username" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+        <button type="submit">Log in</button>
+      </form>
+    </div>
     <div id="messages"></div>
     <form id="message-form">
         <input type="text" id="message-input" placeholder="Type your message">
