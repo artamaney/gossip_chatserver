@@ -8,7 +8,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const serverHost = "localhost";
-            const serverPort = 5001;
+            const serverPort = 5000;
             const socket = new WebSocket(`ws://${serverHost}:${serverPort}/chat`);
 
             socket.addEventListener("message", (event) => {
